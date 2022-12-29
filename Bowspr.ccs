@@ -17,6 +17,10 @@ define SPRITE_COLLISION_ENABLE_TABLE = 0xC42AEB
 
 define ALWAYS_ZEROS = 0xC40BE8
 
+// Number of sprite palettes (also -1)
+define NUM_PALETTES = 8
+define NUM_PALETTES_m1 = 7
+
 // Memory locations - please select memory locations that are unused
 /////////////////////////////////// vvv Must be below 0x2000
 define MEM_BowsprDmaThreshold       = 0x1BD6 // 2 bytes
@@ -26,7 +30,7 @@ define MEM_BowsprDmaThresholdDiv2   = 0x1BDA // 2 bytes
 define MEM_BowsprEnable             = 0x31c2 // 2 bytes
 define MEM_BowsprTileAllocIdx       = 0x31c4 // 2 bytes
 define MEM_BowsprPrevObjListHead    = 0x31c6 // 2 bytes
-define MEM_BowsprPaletteMap         = 0x31c8 // 8 bytes
+define MEM_BowsprPaletteMap         = 0x31c8 // NUM_PALETTES bytes
 
 define MEM_DmaMode = 0x0091
     define DMA_MODE_FIXED_WORD = 3
@@ -86,29 +90,105 @@ command JSL_RTS_C0(routine) {
   JML (routine)
 }
 
+// Arguments:
+//   A: Number of Battle BGs in use (or 0 for auto-detect)
+//        0 = Auto-detect
+//        1 = Only one battle BG layer is in use (use VRAM from $3000-$3FFF)
+//        2 = Multiple battle BG layers are in use (don't use that VRAM)
+//      Using multiple battle BG laters limits the amount of VRAM available
+//      for sprites, including both Bowspr sprites and enemies.
+//      If you get enemy sprite corruption, consider setting this to 1.
+//      If you get battle BG corruption, consider setting this to 2.
+//   X: Bitmap of sprite palettes available (or 0 for auto-detect)
+//      Bits 0-7 in this value represent whether palettes 0-7 are available 
+//      for Bowspr use. Sprite palettes in battle are grouped into two
+//      sections: the first half is the "normal" palette used by default for
+//      all enemies of the same type. The 2nd half is a copy of the palette
+//      for each enemy type, and is modified to create the dimmed copy used
+//      for un-selected enemies, and also to do the fade-to-white on enemy
+//      death. As an example, if there are two types of enemies in the current
+//      enemy group, it should be safe to use palettes 2-3 and 6-7. Thus, the
+//      bitmask should be 0xCC
 ASM_BowsprBegin: {
-    // Do nothing if we're already enabled
-    LDX_a(MEM_BowsprEnable)
+    REP (0x31)
+    // Do nothing if we're already initialized / enabled
+    LDY_a(MEM_BowsprEnable)
     BEQ(1) RTL
+    PHD
+    TAY
+    TDC
+    ADC_i(-0x12)
+    TCD
+
+    // Locals:
+    // $00: VRAM parameter
+    // $02: Palette parameter
+    // $06: 32-bit temp value (pointer)
+    STY_d(0x00)
+    STX_d(0x02)
 
     // Initialize graphics stuff
-    // Set DMA threshold to lover value to avoid HDMA bug
+    // Set DMA threshold to lower value to avoid HDMA bug
     JSL(ASM_BowsprWriteOurDmaThresh)
     // Start off with the last tile in our list, since we allocate backwards
     LDX_i(0x0080)
-    // Check if we've received a non-zero argument indicating to
-    // not use VRAM from $3000-$3fff
-    CMP_i(0x0000)
-    BEQ(6)
-        // Some BG graphics are stored at word $3000 in VRAM,
-        // which overlaps with the 2nd half of the OAM VRAM.
-        // When the user says this is the case by passing a non-zero
-        // argument, we won't touch the 2nd half of sprite VRAM
-        LDX_i(0x0040)
-        STX_a(MEM_BowsprTileAllocIdx)
-    // We know what tile we'll start allocating from! :)
+    // When using 2 battle BGs, BG graphics are stored at word $3000 in VRAM,
+    // which overlaps with the 2nd half of the OAM VRAM.
+    // When the user says this is the case by passing a non-zero argument,
+    // we won't touch the 2nd half of sprite VRAM.
+    LDA_d(0x00)
+    DEC
+    BPL_a(VRAM_No_Autodetect)
+        // Check for Giygas battle - this is the exception to the rule.
+        LDA_a(0x4A8C)     // CURRENT_BATTLE_GROUP
+        CMP_i(0x01DE)     // GIYGAS_5 + POKEY
+        BEQ_a(VRAM_Do_Not_Use_Upper_Half)
+        // When in battle, the VRAM from $3000-$3FFF will only be in use if
+        // we are in Mode-0. If !(BGMODE & 0x7), then we can't use the memory.
+        LDY_i(0)
+        LDA_a(0x000F) // Load cached BGMODE register
+        AND_i(0x0007) // Get current mode
+        BNE(1)
+        INY           // Y=1 if PPU is in Mode-0
+        TYA           // Move Y -> A to set zero flag
+    VRAM_No_Autodetect:
+    // If we ran autodetect code, the zero flag will be set from the TAY.
+    // If we didn't autodetect, the zero flag is from the DEC.
+    // In both cases, zero flag set means use all the VRAM.
+    BEQ(3)
+    VRAM_Do_Not_Use_Upper_Half:
+        LDX_i(0x0040) // Only allocate VRAM starting at $2FFF
+    STX_a(MEM_BowsprTileAllocIdx)
+
     // Init palette stuff
-    LDX_i(0x00f0)
+    LDX_d(0x02)
+    BNE_a(Palette_No_Autodetect)
+        // Get the current battle group and determine the number of different
+        // enemies in it.
+        TXY               // Y=0
+        LDA_a(0x4A8C)     // CURRENT_BATTLE_GROUP
+        ASL ASL ASL       // Multiply by 8
+        TAX
+        LDA_xl(0xD0C60D)  // BTL_ENTRY_PTR_TABLE
+        STA_d(0x06)
+        LDA_xl(0xD0C60F)  // BTL_ENTRY_PTR_TABLE+2
+        STA_d(0x08)
+        TYX               // Y=0,X=0
+        SEP(0x20)         // Accumulator 8-bit
+        // Little loop - assumes there's always at least one enemy in the group
+            INX           // X+=1
+            INY INY INY   // Y+=3
+            LDA_dly(0x06) // Load enemy count
+            CMP_8(0xFF)   // Check if 255
+            BNE(-10)      // Branch if there's another enemy
+        // End of little loop
+        // Load our palette setting based on the number of types of enemies
+        LDA_xl(TBL_EnemyTypeCountToPaletteSetting)
+        REP(0x20)
+        AND_i(0x00FF)
+        // ASM_BowsprPaletteInit requires the palette bitmask in the X register
+        TAX
+    Palette_No_Autodetect:
     JSL(ASM_BowsprPaletteInit)
 
     // Store previous object linked list
@@ -119,9 +199,16 @@ ASM_BowsprBegin: {
     STA_a(MEM_ObjListHead)
     // Enable hijack
     INC_a(MEM_BowsprEnable)
-    
-    RTL
+    // Return
+    PLD RTL
 }
+
+TBL_EnemyTypeCountToPaletteSetting:
+    byte 0xFF // no enemies in the group - can't happen.
+    byte 0xEE // 1 enemy   - palettes 1-3 and 5-7 are safe.
+    byte 0xCC // 2 enemies - palettes 2-3 and 6-7 are safe.
+    byte 0x88 // 3 enemies - palettes  3  and  7  are safe.
+    byte 0x00 // 4 enemies in the group - no palettes available.
 
 ASM_BowsprEnd: {
     // Do nothing if we're not enabled
@@ -172,7 +259,7 @@ loop:
     LDX_d(0x02)
     LDA_x(MEM_ObjListNextEntry)
     TAX
-    JMP(loop)
+    BRA_a(loop)
 }
 
 // X = Index to object tables
@@ -473,8 +560,7 @@ TBL_TileAllocIdxToTileNumFull: {
     short 0x01E8 short 0x01EA short 0x01EC short 0x01EE
 }
 
-// X: Palette free map (bits 4-7 correspond to the last 4 palettes in sprite palette space)
-//      Ex. only palette 7 available: 0x80; palettes 4,5 available: 0x30
+// X: Palette free map - see ASM_BowsprBegin
 ASM_BowsprPaletteInit: {
     PHD
     TDC
@@ -484,7 +570,7 @@ ASM_BowsprPaletteInit: {
     // Set up palette allocation map space
     SEP(0x30)
     STX_d(0x00)
-    LDX_8(0x03)
+    LDX_8(NUM_PALETTES_m1)
 PaletteMapInitLoop:
     LDA_8(0xff)
     ASL_d(0x00)
@@ -505,7 +591,7 @@ PaletteMapInitLoop:
 
 ASM_BowsprPaletteGetIndex: M_EB_Function_Wrapper({
     STA_d(0x00)
-    LDX_i(0x0003)
+    LDX_i(NUM_PALETTES_m1)
 PaletteSearchLoop:
     LDA_x(MEM_BowsprPaletteMap)
     AND_i(0x00ff)
@@ -515,7 +601,7 @@ PaletteSearchLoop:
     BEQ_a(PaletteFound)
     DEX
     BPL_a(PaletteSearchLoop)
-    // Error condition - use last uploaded palette
+    // Error condition - use palette 0
     LDA_i(0x0000)
     BRA_a(ReturnPaletteBits)
 PaletteNotFound:
@@ -543,7 +629,7 @@ PaletteNotFound:
     ASL
     ASL
     ASL
-    ADC_i(0x0380)
+    ADC_i(0x0300)
 
     // Get CGRAM palette size
     LDX_i(0x0020)
@@ -562,7 +648,6 @@ PaletteFound:
     TXA
 ReturnPaletteBits:
     ASL
-    ORA_i(0x0008)
 })
 
 // Bugfix for HDMA starting during frame:

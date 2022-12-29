@@ -15,7 +15,9 @@ command create(sprite, mov_addr) {
 
 // This goes first in the file so CCScript will put it at the start
 atm_card_asm: M_EB_Function_Wrapper({
-    LDA_i(0x0001)
+    // Autodetect VRAM and Palette settings
+    LDA_i(0)
+    TAX
     JSL(ASM_BowsprBegin)
 
     create(1, test_ness)
