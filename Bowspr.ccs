@@ -1,6 +1,25 @@
-// Bowspr.ccs - v0.6
+// Bowspr.ccs - v0.7
 // Battle OverWorld Sprites
-// cooprocks123e, 2021
+// cooprocks123e, 2021-2024
+// v0.7 - added priority, fixed crash with new movscr_codes, updated example
+
+/// PRIORITY EXPLANATION
+// With Bowspr v0.7, the sprite priority now affects whether sprites will
+// appear in front or behind the enemy sprites. The priority is as follows:
+//   Front
+//     Bowspr sprites with priority 0
+//     Bowspr sprites with priority 1
+//     Enemy front row
+//     Bowspr sprites with priority 2
+//     Enemy back row
+//     Bowspr sprites with priority 3
+//
+// Note that priority 1 is special cased in the default code:
+// any sprites with priority 1 will be sorted by their Y position on screen,
+// so that sprites lower on screen appear on top. This doesn't happen with
+// priority settings 0, 2, and 3. If you require this sorting feature, use
+// priority 1. If you don't require it, use priority 0 as the sorting does take
+// time and can cause lag.
 
 import asm65816
 import movscr_codes
@@ -22,6 +41,10 @@ define NUM_PALETTES = 8
 define NUM_PALETTES_m1 = 7
 
 // Memory locations - please select memory locations that are unused
+/////////////////////////////////// vvv Must be below 0x0100
+define MEM_BowsprDrawOamOnePriority_Temp1 = 0x00C2 // 2 bytes
+define MEM_BowsprDrawOamOnePriority_Temp2 = 0x00C4 // 2 bytes
+/////////////////////////////////// ^^^ Must be below 0x0100
 /////////////////////////////////// vvv Must be below 0x2000
 define MEM_BowsprDmaThreshold       = 0x1BD6 // 2 bytes
 define MEM_BowsprDmaThresholdP1     = 0x1BD8 // 2 bytes
@@ -32,6 +55,7 @@ define MEM_BowsprTileAllocIdx       = 0x31c4 // 2 bytes
 define MEM_BowsprPrevObjListHead    = 0x31c6 // 2 bytes
 define MEM_BowsprPaletteMap         = 0x31c8 // NUM_PALETTES bytes
 
+define MEM_SpritemapBank = 0x000B
 define MEM_DmaMode = 0x0091
     define DMA_MODE_FIXED_WORD = 3
 define MEM_DmaSize = 0x0092
@@ -73,7 +97,10 @@ define MEM_ObjCollisionNSHitboxWidth    = 0x3366
 define MEM_ObjCollisionNSHitboxHeight   = 0x33A2
 define MEM_ObjCollisionEWHitboxWidth    = 0x33DE
 
+define ASM_SetSpritemapBank = 0xC088A5
+define ASM_OamClear = 0xC088B1
 define ASM_UpdateScreen = 0xC08B26
+define ASM_RenderSpriteToOAM = 0xC08CD5
 define ASM_ProcessObjects = 0xC09466
 define ASM_InitEntityWipe = 0xC092F5
 define ASM_InitEntityUnknown2 = 0xC09403
@@ -228,16 +255,88 @@ ASM_BowsprEnd: {
     RTL
 }
 
-// Hijack routine run during battle to draw our battle sprites
-ROM[0xc2f912] = JSL(ASM_Hijack_C2F8F9)
-// This replaces a call to 0xC08B26 (UPDATE_SCREEN)
-// so we need to return there at the end
-ASM_Hijack_C2F8F9: {
+// Replace ASM_DrawBattleSprites with our custom code
+ROM[0xC2F8F9] = {
+    JML(ASM_DrawBattleSprites_New)
+/* C2F8FD */
+    // ASM_Trampoline_RenderBattleSpriteRow:
+    JSR(0xC2F724) RTL
+/* C2F901 */
+    NOP NOP NOP NOP NOP
+/* C2F906 */
+    // ASM_DrawBattleSprites_PartialOrig:
+    // original code here...
+}
+define ASM_Trampoline_RenderBattleSpriteRow = 0xC2F8FD
+define ASM_DrawBattleSprites_PartialOrig = 0xC2F906
+
+command MACRO_BowsprDrawOamOnePriority(tblMapAddr, tblXpos, tblYpos, tblMapBank, tblCount) {
+    LDX_i(0x0000)
+    CPX_a(tblCount)
+    BCS_a(done)
+    PHD
+    TXA
+    TCD
+loop:
+    STX_d(MEM_BowsprDrawOamOnePriority_Temp1)
+    LDA_x(tblMapBank)
+    STA_a(MEM_SpritemapBank)
+    LDA_x(tblMapAddr)
+    STA_d(MEM_BowsprDrawOamOnePriority_Temp2)
+    LDY_x(tblYpos)
+    LDA_x(tblXpos)
+    TAX
+    LDA_d(MEM_BowsprDrawOamOnePriority_Temp2)
+    JSL(ASM_RenderSpriteToOAM)
+    LDX_d(MEM_BowsprDrawOamOnePriority_Temp1)
+    INX
+    INX
+    CPX_a(tblCount)
+    BCC_a(loop)
+cleanup:
+    PLD
+done:
+}
+
+ASM_DrawBattleSprites_New: {
+    REP(0x31)
+    LDA_i(0x007E)
+    JSL(ASM_SetSpritemapBank)
+    JSL(ASM_OamClear)
+
+    // If Bowspr is not enabled, jump back to original code
     LDA_a(MEM_BowsprEnable)
-    BEQ(4)
+    BNE(4)
+    JML(ASM_DrawBattleSprites_PartialOrig)
+
+    // Run actionscript for Bowspr
     JSL(ASM_ProcessObjects)
-EndHijack:
-    JML(ASM_UpdateScreen)
+
+    ///////////////////////////////////////////////////////////////////////////
+    // vvvvv Sprite drawing section
+    // Draw Bowspr sprites with priority 0 - on top
+    MACRO_BowsprDrawOamOnePriority(0x2404, 0x2444, 0x2484, 0x24C4, 0x2504)
+    // Draw Bowspr sprites with priority 1 - below prio 0
+    MACRO_BowsprDrawOamOnePriority(0x2506, 0x2546, 0x2586, 0x25C6, 0x2606)
+
+    // Draw front row of enemy sprites - below prio 1
+    LDA_i(0)
+    JSL(ASM_Trampoline_RenderBattleSpriteRow)
+
+    // Draw Bowspr sprites with priority 2 - below front row
+    MACRO_BowsprDrawOamOnePriority(0x2608, 0x2648, 0x2688, 0x26C8, 0x2708)
+
+    // Draw back row of enemy sprites - below prio 2
+    LDA_i(1)
+    JSL(ASM_Trampoline_RenderBattleSpriteRow)
+
+    // Draw Bowspr sprites with priority 3 - below back row
+    MACRO_BowsprDrawOamOnePriority(0x270A, 0x274A, 0x278A, 0x27CA, 0x280A)
+    // ^^^^^ Sprite drawing section
+    ///////////////////////////////////////////////////////////////////////////
+
+    // Jump partway through UpdateScreen to avoid drawing sprites again
+    JML(0xC08B2B)
 }
 
 ASM_ObjDeleteAll: {
@@ -310,6 +409,9 @@ ASM_BowsprCreateEntity: M_EB_Function_Wrapper_UserStack(-0x20, {
     STZ_x(MEM_ObjMovementSpeed)
     STZ_x(MEM_ObjMovementDirection)
     STZ_x(MEM_ObjBlockedByObstacle)
+    // Clear destructor memory - remove if not using destructors
+    STZ_x(movscr_codes.OBJ_destructor_lo)
+    STZ_x(movscr_codes.OBJ_destructor_hi)
 
     // Set up collision
     STZ_x(MEM_ObjCollisionNSHitboxWidth)

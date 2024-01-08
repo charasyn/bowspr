@@ -1,0 +1,40 @@
+import asm65816
+import ccexpand
+import cc_asmcall
+import Bowspr
+
+command BowsprCC_Begin(bgs, palettes) {
+    cc_asmcall(ASM_BowsprCC_Begin, RET_NONE)
+    byte bgs
+    byte palettes
+}
+
+command BowsprCC_End cc_asmcall(ASM_BowsprEnd, RET_NONE)
+
+command BowsprCC_CreateSprite(sprite, movementAddr) {
+    cc_asmcall(ASM_BowsprCC_CreateSprite, RET_NONE)
+    short sprite
+    long movementAddr
+}
+
+ASM_BowsprCC_Begin: M_EB_Function_Wrapper({
+    LDY_i(2)
+    JSL(R_Read_Parameter_Bytes)
+    LDA_a(D_cc_argv_1)
+    AND_i(0x00ff)
+    TAX
+    LDA_a(D_cc_argv_0)
+    AND_i(0x00ff)
+    JSL(ASM_BowsprBegin)
+})
+
+ASM_BowsprCC_CreateSprite: M_EB_Function_Wrapper({
+    LDY_i(6)
+    JSL(R_Read_Parameter_Bytes)
+    LDX_a(D_cc_argv_2)
+    STX_d(0x0e)
+    LDX_a(D_cc_argv_4)
+    STX_d(0x10)
+    LDA_a(D_cc_argv_0)
+    JSL(ASM_BowsprCreateEntity)
+})

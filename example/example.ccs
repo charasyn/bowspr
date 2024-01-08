@@ -43,35 +43,35 @@ MiddleText:
 
 define WAIT_FRAMES = 1
 test_ness: {
-    setxpos(260)
-    setypos(88)
-    ondraw(0x9ff0) // NOP - Don't draw us yet
-    mov_var(7,0)
-    mov_reg_var(7)
-    asmcall(asm_write_letterbox_regs)
-    mov_reg_imm(2)
-    asmcall(0xc429e8)
-    startloop(34)
-        var_add(7,2)
-        mov_reg_var(7)
-        asmcall(asm_write_letterbox_regs)
-        mov_wait(1)
-    endloop
-    unlock_text_script
-    mov_wait(1)
-    mov_mem16(0x9641,0)
-    mov_jsl(common)
-    ondraw(0x9ff0) // NOP - Don't draw us now
-    mov_var(7,68)
-    startloop(34)
-        var_add(7,-2)
-        mov_reg_var(7)
-        asmcall(asm_write_letterbox_regs)
-        mov_wait(1)
-    endloop
-    mem8_and(0x001f,0xFD)
-    unlock_text_script
-    mov_end
+    m_set_xpos(260)
+    m_set_ypos(88)
+    m_ondraw(0x9ff0) // NOP - Don't draw us yet
+    m_set_var7(0)
+    m_get_var7
+    m_asmcall(asm_write_letterbox_regs)
+    m_set_result(2)
+    m_asmcall(0xc429e8)
+    m_loop(34)
+        m_add_var7(2)
+        m_get_var7
+        m_asmcall(asm_write_letterbox_regs)
+        m_pause(1)
+    m_endloop
+    m_unlock_text
+    m_pause(1)
+    m_set_mem16(0x9641,0)
+    m_jsl(common)
+    m_ondraw(0x9ff0) // NOP - Don't draw us yet
+    m_set_var7(68)
+    m_loop(34)
+        m_add_var7(-2)
+        m_get_var7
+        m_asmcall(asm_write_letterbox_regs)
+        m_pause(1)
+    m_endloop
+    m_and_mem8(0x001f,0xfd)
+    m_unlock_text
+    m_end
 }
 asm_write_letterbox_regs: {
     INC
@@ -87,144 +87,147 @@ asm_write_letterbox_regs: {
     RTL
 }
 test_paula: {
-    setxpos(280)
-    setypos(88)
-    ondraw(0x9ff0) // NOP - Don't draw us yet
-    mov_jsl(wait_for_unlock)
-    mov_jsl(common)
-    mov_end
+    m_set_xpos(280)
+    m_set_ypos(88)
+    m_ondraw(0x9ff0) // NOP - Don't draw us yet
+    m_jsl(wait_for_unlock)
+    m_jsl(common)
+    m_end
 }
 test_jeff: {
-    setxpos(300)
-    setypos(88)
-    ondraw(0x9ff0) // NOP - Don't draw us yet
-    mov_jsl(wait_for_unlock)
-    mov_jsl(common)
-    mov_end
+    m_set_xpos(300)
+    m_set_ypos(88)
+    m_ondraw(0x9ff0) // NOP - Don't draw us yet
+    m_jsl(wait_for_unlock)
+    m_jsl(common)
+    m_end
 }
 test_poo: {
-    setxpos(320)
-    setypos(88)
-    ondraw(0x9ff0) // NOP - Don't draw us yet
-    mov_jsl(wait_for_unlock)
-    mov_jsl(common)
-    mov_end
+    m_set_xpos(320)
+    m_set_ypos(88)
+    m_ondraw(0x9ff0) // NOP - Don't draw us yet
+    m_jsl(wait_for_unlock)
+    m_jsl(common)
+    m_end
 }
 test_5: {
-    setxpos(340)
-    setypos(88)
-    ondraw(0x9ff0) // NOP - Don't draw us yet
-    mov_jsl(wait_for_unlock)
-    mov_jsl(common)
-    mov_end
+    m_set_xpos(340)
+    m_set_ypos(88)
+    m_ondraw(0x9ff0) // NOP - Don't draw us yet
+    m_jsl(wait_for_unlock)
+    m_jsl(common)
+    m_end
 }
 test_6: {
-    setxpos(360)
-    setypos(88)
-    ondraw(0x9ff0) // NOP - Don't draw us yet
-    mov_jsl(wait_for_unlock)
-    mov_jsl(common)
-    mov_end
+    m_set_xpos(360)
+    m_set_ypos(88)
+    m_ondraw(0x9ff0) // NOP - Don't draw us yet
+    m_jsl(wait_for_unlock)
+    m_jsl(common)
+    m_end
 }
 test_7: {
-    setxpos(380)
-    setypos(88)
-    ondraw(0x9ff0) // NOP - Don't draw us yet
-    mov_jsl(wait_for_unlock)
-    mov_jsl(common)
-    mov_end
+    m_set_xpos(380)
+    m_set_ypos(88)
+    m_ondraw(0x9ff0) // NOP - Don't draw us yet
+    m_jsl(wait_for_unlock)
+    m_jsl(common)
+    m_end
 }
 test_8: {
-    setxpos(400)
-    setypos(88)
-    ondraw(0x9ff0) // NOP - Don't draw us yet
-    mov_jsl(wait_for_unlock)
-    mov_jsl(common)
-    mov_end
+    m_set_xpos(400)
+    m_set_ypos(88)
+    m_ondraw(0x9ff0) // NOP - Don't draw us yet
+    m_jsl(wait_for_unlock)
+    m_jsl(common)
+    m_end
 }
 
 wait_for_unlock: {
-    mov_wait(1)
-    mov_reg_mem(0x9641)
-    jeq(wait_for_unlock)
-    mov_wait(1)
-    mov_rtl
+    m_pause(1)
+    m_get_mem16(0x9641)
+    m_jeq(wait_for_unlock)
+    m_pause(1)
+    m_rtl
 }
 
 common: {
-    ontick_nop
-    priority(0)
-    onmove(0xC09FC8) // Apply XY velocity
-    onposition(0xC0A0BB) // Position relative to screen
-    ondraw(0xC0A3A4) // Usual draw code
-    mov_var(0, 1)
-    startloop(12)
-        mov_jsl(go_in_circle)
-    endloop
-    setxvel(0)
-    setyvel(0)
-    movasm_destroy_thisobj
-    mov_rtl
+    m_ontick_nop
+    m_priority(0)
+    m_onmove(0xC09FC8) // Apply XY velocity
+    m_onposition(0xC0A0BB) // Position relative to screen
+    m_ondraw(0xC0A3A4) // Usual draw code
+    m_set_var0(1)
+    m_loop(12)
+        m_jsl(go_in_circle)
+    m_endloop
+    m_set_xvel(0)
+    m_set_yvel(0)
+    m_asmcall (0xC020F1)
+    m_rtl
 }
 go_in_circle: {
-setxvel(713) setyvel(0) movasm_set_facing_anim(2,0) mov_wait(WAIT_FRAMES)
-setxvel(701) setyvel(133) movasm_set_facing_anim(2,0) mov_wait(WAIT_FRAMES)
-setxvel(666) setyvel(262) movasm_set_facing_anim(2,1) mov_wait(WAIT_FRAMES)
-setxvel(608) setyvel(385) movasm_set_facing_anim(3,1) mov_wait(WAIT_FRAMES)
-setxvel(528) setyvel(498) movasm_set_facing_anim(3,0) mov_wait(WAIT_FRAMES)
-setxvel(429) setyvel(600) movasm_set_facing_anim(3,0) mov_wait(WAIT_FRAMES)
-setxvel(314) setyvel(686) movasm_set_facing_anim(3,1) mov_wait(WAIT_FRAMES)
-setxvel(184) setyvel(756) movasm_set_facing_anim(3,1) mov_wait(WAIT_FRAMES)
-setxvel(43) setyvel(806) movasm_set_facing_anim(4,0) mov_wait(WAIT_FRAMES)
-setxvel(-104) setyvel(838) movasm_set_facing_anim(4,0) mov_wait(WAIT_FRAMES)
-setxvel(-256) setyvel(848) movasm_set_facing_anim(4,1) mov_wait(WAIT_FRAMES)
-setxvel(-407) setyvel(838) movasm_set_facing_anim(4,1) mov_wait(WAIT_FRAMES)
-setxvel(-554) setyvel(806) movasm_set_facing_anim(4,0) mov_wait(WAIT_FRAMES)
-setxvel(-695) setyvel(756) movasm_set_facing_anim(5,0) mov_wait(WAIT_FRAMES)
-setxvel(-825) setyvel(686) movasm_set_facing_anim(5,1) mov_wait(WAIT_FRAMES)
-setxvel(-940) setyvel(600) movasm_set_facing_anim(5,1) mov_wait(WAIT_FRAMES)
-setxvel(-1039) setyvel(498) movasm_set_facing_anim(5,0) mov_wait(WAIT_FRAMES)
-setxvel(-1119) setyvel(385) movasm_set_facing_anim(5,0) mov_wait(WAIT_FRAMES)
-setxvel(-1177) setyvel(262) movasm_set_facing_anim(6,1) mov_wait(WAIT_FRAMES)
-setxvel(-1212) setyvel(133) movasm_set_facing_anim(6,1) mov_wait(WAIT_FRAMES)
-setxvel(-1224) setyvel(0) movasm_set_facing_anim(6,0) mov_wait(WAIT_FRAMES)
-setxvel(-1212) setyvel(-132) movasm_set_facing_anim(6,0) mov_wait(WAIT_FRAMES)
-setxvel(-1177) setyvel(-261) movasm_set_facing_anim(6,1) mov_wait(WAIT_FRAMES)
-setxvel(-1119) setyvel(-384) movasm_set_facing_anim(7,1) mov_wait(WAIT_FRAMES)
-setxvel(-1039) setyvel(-497) movasm_set_facing_anim(7,0) mov_wait(WAIT_FRAMES)
-setxvel(-940) setyvel(-599) movasm_set_facing_anim(7,0) mov_wait(WAIT_FRAMES)
-setxvel(-825) setyvel(-685) movasm_set_facing_anim(7,1) mov_wait(WAIT_FRAMES)
-setxvel(-695) setyvel(-755) movasm_set_facing_anim(7,1) mov_wait(WAIT_FRAMES)
-setxvel(-554) setyvel(-805) movasm_set_facing_anim(0,0) mov_wait(WAIT_FRAMES)
-setxvel(-407) setyvel(-837) movasm_set_facing_anim(0,0) mov_wait(WAIT_FRAMES)
-setxvel(-256) setyvel(-847) movasm_set_facing_anim(0,1) mov_wait(WAIT_FRAMES)
-setxvel(-104) setyvel(-837) movasm_set_facing_anim(0,1) mov_wait(WAIT_FRAMES)
-setxvel(43) setyvel(-805) movasm_set_facing_anim(0,0) mov_wait(WAIT_FRAMES)
-setxvel(184) setyvel(-755) movasm_set_facing_anim(1,0) mov_wait(WAIT_FRAMES)
-setxvel(314) setyvel(-685) movasm_set_facing_anim(1,1) mov_wait(WAIT_FRAMES)
-setxvel(429) setyvel(-599) movasm_set_facing_anim(1,1) mov_wait(WAIT_FRAMES)
-setxvel(528) setyvel(-497) movasm_set_facing_anim(1,0) mov_wait(WAIT_FRAMES)
-setxvel(608) setyvel(-384) movasm_set_facing_anim(1,0) mov_wait(WAIT_FRAMES)
-setxvel(666) setyvel(-261) movasm_set_facing_anim(2,1) mov_wait(WAIT_FRAMES)
-setxvel(701) setyvel(-132) movasm_set_facing_anim(2,1) mov_wait(WAIT_FRAMES)
-    mov_rtl
+m_set_xvel(713) m_set_yvel(0) m_set_facing_anim(2,0) m_pause(WAIT_FRAMES)
+m_set_xvel(701) m_set_yvel(133) m_set_facing_anim(2,0) m_pause(WAIT_FRAMES)
+m_set_xvel(666) m_set_yvel(262) m_set_facing_anim(2,1) m_pause(WAIT_FRAMES)
+m_set_xvel(608) m_set_yvel(385) m_set_facing_anim(3,1) m_pause(WAIT_FRAMES)
+m_set_xvel(528) m_set_yvel(498) m_set_facing_anim(3,0) m_pause(WAIT_FRAMES)
+m_set_xvel(429) m_set_yvel(600) m_set_facing_anim(3,0) m_pause(WAIT_FRAMES)
+m_set_xvel(314) m_set_yvel(686) m_set_facing_anim(3,1) m_pause(WAIT_FRAMES)
+m_set_xvel(184) m_set_yvel(756) m_set_facing_anim(3,1) m_pause(WAIT_FRAMES)
+m_set_xvel(43) m_set_yvel(806) m_set_facing_anim(4,0) m_pause(WAIT_FRAMES)
+m_set_xvel(-104) m_set_yvel(838) m_set_facing_anim(4,0) m_pause(WAIT_FRAMES)
+m_set_xvel(-256) m_set_yvel(848) m_set_facing_anim(4,1) m_pause(WAIT_FRAMES)
+m_set_xvel(-407) m_set_yvel(838) m_set_facing_anim(4,1) m_pause(WAIT_FRAMES)
+m_set_xvel(-554) m_set_yvel(806) m_set_facing_anim(4,0) m_pause(WAIT_FRAMES)
+m_set_xvel(-695) m_set_yvel(756) m_set_facing_anim(5,0) m_pause(WAIT_FRAMES)
+m_set_xvel(-825) m_set_yvel(686) m_set_facing_anim(5,1) m_pause(WAIT_FRAMES)
+m_set_xvel(-940) m_set_yvel(600) m_set_facing_anim(5,1) m_pause(WAIT_FRAMES)
+m_set_xvel(-1039) m_set_yvel(498) m_set_facing_anim(5,0) m_pause(WAIT_FRAMES)
+m_set_xvel(-1119) m_set_yvel(385) m_set_facing_anim(5,0) m_pause(WAIT_FRAMES)
+m_set_xvel(-1177) m_set_yvel(262) m_set_facing_anim(6,1) m_pause(WAIT_FRAMES)
+m_set_xvel(-1212) m_set_yvel(133) m_set_facing_anim(6,1) m_pause(WAIT_FRAMES)
+m_set_xvel(-1224) m_set_yvel(0) m_set_facing_anim(6,0) m_pause(WAIT_FRAMES)
+m_set_xvel(-1212) m_set_yvel(-132) m_set_facing_anim(6,0) m_pause(WAIT_FRAMES)
+m_set_xvel(-1177) m_set_yvel(-261) m_set_facing_anim(6,1) m_pause(WAIT_FRAMES)
+m_set_xvel(-1119) m_set_yvel(-384) m_set_facing_anim(7,1) m_pause(WAIT_FRAMES)
+m_set_xvel(-1039) m_set_yvel(-497) m_set_facing_anim(7,0) m_pause(WAIT_FRAMES)
+m_set_xvel(-940) m_set_yvel(-599) m_set_facing_anim(7,0) m_pause(WAIT_FRAMES)
+m_set_xvel(-825) m_set_yvel(-685) m_set_facing_anim(7,1) m_pause(WAIT_FRAMES)
+m_set_xvel(-695) m_set_yvel(-755) m_set_facing_anim(7,1) m_pause(WAIT_FRAMES)
+m_set_xvel(-554) m_set_yvel(-805) m_set_facing_anim(0,0) m_pause(WAIT_FRAMES)
+m_set_xvel(-407) m_set_yvel(-837) m_set_facing_anim(0,0) m_pause(WAIT_FRAMES)
+m_set_xvel(-256) m_set_yvel(-847) m_set_facing_anim(0,1) m_pause(WAIT_FRAMES)
+m_set_xvel(-104) m_set_yvel(-837) m_set_facing_anim(0,1) m_pause(WAIT_FRAMES)
+m_set_xvel(43) m_set_yvel(-805) m_set_facing_anim(0,0) m_pause(WAIT_FRAMES)
+m_set_xvel(184) m_set_yvel(-755) m_set_facing_anim(1,0) m_pause(WAIT_FRAMES)
+m_set_xvel(314) m_set_yvel(-685) m_set_facing_anim(1,1) m_pause(WAIT_FRAMES)
+m_set_xvel(429) m_set_yvel(-599) m_set_facing_anim(1,1) m_pause(WAIT_FRAMES)
+m_set_xvel(528) m_set_yvel(-497) m_set_facing_anim(1,0) m_pause(WAIT_FRAMES)
+m_set_xvel(608) m_set_yvel(-384) m_set_facing_anim(1,0) m_pause(WAIT_FRAMES)
+m_set_xvel(666) m_set_yvel(-261) m_set_facing_anim(2,1) m_pause(WAIT_FRAMES)
+m_set_xvel(701) m_set_yvel(-132) m_set_facing_anim(2,1) m_pause(WAIT_FRAMES)
+    m_rtl
 }
 
 // ================================================================================================
 
 // Make Tracy say our custom text.
-ROM[0xc66aa4] = { goto(test_text) }
-test_text: {
-    "@Geegoo time?" newline
+// If using CoilSnake, make the following change:
+// In npc_config_table.yml, change entry 30's Text Pointer 1 to "example.tracy_text"
+ROM[0xc66aa4] = { goto(tracy_text) }
+tracy_text: {
+    "@Test battle time?" newline
     "[19 02]Yes[02][19 02]No[02][1C 07 02][11]{clearline}[09 02 {long giygas_time} {long no_giygas_time}]"
 no_giygas_time:
     "@Ok/ maybe later.| Cya" next
     eob
 giygas_time:
-    // Start battle with enemy group 478?
+    // Start battle with enemy group 400:
+    // Major Psychic Psycho and Soul Consuming Flame
     window_close(1)
-    cc_asmcall(setup_giygas, RET_NONE)
-    "[1f 23 {short 478}]"
+    // cc_asmcall(setup_giygas, RET_NONE)
+    "[1f 23 {short 400}]"
     window_open(1)
     "@Ok cool. Good job bro." next
     eob
@@ -235,6 +238,12 @@ setup_giygas: {
     RTL
 }
 // Overwrite ATM card battle routine with our code
+// If using CoilSnake, make the following changes:
+// In item_configuration_table.yml:
+//   change item 177's Type to 53
+// In battle_action_table.yml:
+//   change action 197's Text Address to "example.atm_card_text"
+//   change action 197's Code Address to "example.atm_card_asm"
 ROM[0xD584A8] = long atm_card_text
 ROM[0xD584AC] = long atm_card_asm
 ROM[0xD56B10] = byte 0x35
