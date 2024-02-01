@@ -2,12 +2,12 @@
 // Battle OverWorld Sprites
 // cooprocks123e, 2021-2024
 // v0.71:
-    - fixed crash with movscr_codes destructors again (oops!)
-    - resolve sprites appearing behind battle backgrounds
-        - set the priority bits in the spritemap to 2 when creating a sprite
-        - add new Bowspr-specific draw callback which doesn't change the priority bits
-    - load SPRITE_GROUPING_PTR_TABLE from ROM function instead of hardcoding
-        - fixes issues with Coilsnake relocating the sprite group table
+//  - fixed crash with movscr_codes destructors again (oops!)
+//  - resolve sprites appearing behind battle backgrounds
+//    - set the priority bits in the spritemap to 2 when creating a sprite
+//    - add new Bowspr-specific draw callback which doesn't change the priority bits
+//  - load SPRITE_GROUPING_PTR_TABLE from ROM function instead of hardcoding
+//    - fixes issues with Coilsnake relocating the sprite group table
 // v0.7 - added priority, fixed crash with new movscr_codes, updated example
 
 /// IF YOU EXPERIENCE CRASHES AFTER BATTLE ENDS
