@@ -1,7 +1,19 @@
-// Bowspr.ccs - v0.7
+// Bowspr.ccs - v0.71
 // Battle OverWorld Sprites
 // cooprocks123e, 2021-2024
+// v0.71:
+    - fixed crash with movscr_codes destructors again (oops!)
+    - resolve sprites appearing behind battle backgrounds
+        - set the priority bits in the spritemap to 2 when creating a sprite
+        - add new Bowspr-specific draw callback which doesn't change the priority bits
+    - load SPRITE_GROUPING_PTR_TABLE from ROM function instead of hardcoding
+        - fixes issues with Coilsnake relocating the sprite group table
 // v0.7 - added priority, fixed crash with new movscr_codes, updated example
+
+/// IF YOU EXPERIENCE CRASHES AFTER BATTLE ENDS
+// This is an issue with the memory used for the new destructor features in
+// the latest movscr_codes.ccs. Please use the version of movscr_codes
+// bundled with Bowspr.
 
 /// PRIORITY EXPLANATION
 // With Bowspr v0.7, the sprite priority now affects whether sprites will
@@ -69,10 +81,11 @@ define MEM_ObjListHead                  = 0x0A50
 define MEM_ObjListNextEntry             = 0x0A9E
 define MEM_ObjSpritemapPtrLo            = 0x112E
 define MEM_ObjSpritemapPtrHi            = 0x116A
+define MEM_ObjDrawCallback              = 0x11E2
 define MEM_ObjCollisionEWHitboxHeight   = 0x1A4A
 define MEM_ObjBlockedByObject           = 0x289E
 define MEM_ObjBlockedByObstacle         = 0x28DA
-define MEM_ObjSpritemapExtraOffset      = 0x2916
+define MEM_ObjFlippedSpritemapOffset    = 0x2916
 define MEM_ObjSpriteVramAllocationIndex = 0x2952
 define MEM_ObjSpriteVramAddr            = 0x298E
 define MEM_ObjSpriteGraphicsPtrLo       = 0x29CA
@@ -96,6 +109,10 @@ define MEM_ObjCollisionEnable           = 0x332A
 define MEM_ObjCollisionNSHitboxWidth    = 0x3366
 define MEM_ObjCollisionNSHitboxHeight   = 0x33A2
 define MEM_ObjCollisionEWHitboxWidth    = 0x33DE
+define MEM_ObjGraphicsPtrLo             = 0x341A
+
+/* Warning: This patch overwrites the ROM from $C0FFE0 to $C0FFE3 */
+define ASMNEAR_C0_BowsprDrawCallback = 0xC0FFE0
 
 define ASM_SetSpritemapBank = 0xC088A5
 define ASM_OamClear = 0xC088B1
@@ -383,6 +400,7 @@ ASM_BowsprCreateEntity: M_EB_Function_Wrapper_UserStack(-0x20, {
     // 0x0a (4): Spritemap template
     // 0x0e (2): Spritemap index (into $7E4682)
     // 0x10 (2): Sprite attributes byte
+    // 0x12 (4): SPRITE_GROUPING_PTR_TABLE (ptr loaded from the function at $C01DED)
     STA_d(0x02)
     
     // Default position of 0,0
@@ -412,6 +430,9 @@ ASM_BowsprCreateEntity: M_EB_Function_Wrapper_UserStack(-0x20, {
     // Clear destructor memory - remove if not using destructors
     STZ_x(movscr_codes.OBJ_destructor_lo)
     STZ_x(movscr_codes.OBJ_destructor_hi)
+    // v0.71: Set up default draw callback to be our new one
+    LDA_i(short [0] ASMNEAR_C0_BowsprDrawCallback)
+    STA_x(MEM_ObjDrawCallback)
 
     // Set up collision
     STZ_x(MEM_ObjCollisionNSHitboxWidth)
@@ -439,17 +460,27 @@ ASM_BowsprCreateEntity: M_EB_Function_Wrapper_UserStack(-0x20, {
     // spr_grp * 4
     ASL
     ASL
-    TXY
-    TAX
-    LDA_xl(SPRITE_GROUPING_PTR_TABLE)
+    TAY
+    // v0.71: Load "SPRITE_GROUPING_PTR_TABLE" from a function in ROM
+    // This is because CoilSnake relocates this table now, and will
+    // write the correct table address at this location. However, it
+    // can't relocate our reference here, so we need to load a pointer
+    // which it has overwritten.
+    LDA_al(0xC01DFA)
+    STA_d(0x12)
+    LDA_al(0xC01DFF)
+    STA_d(0x14)
+    // Load the correct sprite group pointer from the table
+    LDA_dly(0x12)
     STA_d(0x06)
     CLC
     ADC_i(9) // Don't know what this is for but the vanilla code has it
-    STA_y(MEM_ObjSpriteGraphicsPtrLo)
-    LDA_xl(SPRITE_GROUPING_PTR_TABLE_p2)
+    STA_x(MEM_ObjSpriteGraphicsPtrLo)
+    INY
+    INY
+    LDA_dly(0x12)
     STA_d(0x08)
-    STA_y(MEM_ObjSpriteGraphicsPtrHi)
-    TYX
+    STA_x(MEM_ObjSpriteGraphicsPtrHi)
     // $06 = Sprite group data ptr
 
     // Calculate value for $467A and MEM_ObjSpriteWidth
@@ -556,7 +587,7 @@ NoSpriteBlankSpace:
     ASL
     ADC_d(0x04)
     LDX_d(0x00)
-    STA_x(MEM_ObjSpritemapExtraOffset)
+    STA_x(MEM_ObjFlippedSpritemapOffset)
     ASL
     JSL(ASM_AllocateSpritemap)
     STA_d(0x0e)
@@ -580,7 +611,9 @@ NoSpriteBlankSpace:
     AND_i(0x00ff)
     STA_d(0x04)
     // Save a copy without palette
-    AND_i(0x00f1)
+    // v0.71: Set spritemap priority bits to 2
+    AND_i(0x00c1)
+    ORA_i(0x0020)
     STA_d(0x10)
     // Get sprite's new palette
     LDA_d(0x04)
@@ -796,6 +829,26 @@ ROM[0xC085D9] = CPX_a(MEM_BowsprDmaThresholdP1)
 ROM[0xC0866C] = CMP_a(MEM_BowsprDmaThresholdP1)
 
 ROM[0xC085F6] = ADC_a(MEM_BowsprDmaThresholdDiv2)
+
+// Draw callback
+// This must be only 4 bytes!
+ROM[ASMNEAR_C0_BowsprDrawCallback] = { JML(ASM_BowsprDrawCallback) }
+ASM_BowsprDrawCallback: {
+    // Load low 16-bits of graphics data pointer and use the flipped spritemap
+    // if the low bit is 1
+    LDA_x(MEM_ObjGraphicsPtrLo)
+    AND_i(0x0001)
+    BEQ_a(NoFlip)
+    LDA_x(MEM_ObjFlippedSpritemapOffset)
+    CLC
+    ADC_d(0x8C)
+    STA_d(0x8C)
+NoFlip:
+    // Reuse the existing code to handle priority sorting
+    // and also stuff like ripples, sweating, mushroomized
+    // Needs to be bank 80!
+    JML(0x80A406)
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Notes

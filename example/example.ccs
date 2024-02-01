@@ -156,7 +156,9 @@ common: {
     m_priority(0)
     m_onmove(0xC09FC8) // Apply XY velocity
     m_onposition(0xC0A0BB) // Position relative to screen
-    m_ondraw(0xC0A3A4) // Usual draw code
+    // Custom Bowspr draw code - this is the default draw code now,
+    // but we replace it with NOP above
+    m_ondraw(ASMNEAR_C0_BowsprDrawCallback)
     m_set_var0(1)
     m_loop(12)
         m_jsl(go_in_circle)

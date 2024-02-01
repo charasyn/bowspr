@@ -1,5 +1,8 @@
-# When building the example, Bowspr.ccs is copied into the example directory.
-# Don't include it in the git repo to avoid it becoming out of date.
+# When building the example, Bowspr.ccs and movscr_codes.ccs are copied
+# into the example directory. Don't include those copies in the git repo
+# to avoid them becoming out of date.
 example/Bowspr.ccs
+example/movscr_codes.ccs
+
 example/summary.txt
 example/build/
